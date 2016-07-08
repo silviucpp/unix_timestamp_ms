@@ -60,13 +60,13 @@ ulonglong get_time_since_epoch_ms()
 {
     _FILETIME ft;
     GetSystemTimeAsFileTime(&ft);
-    uint64_t ns100 = (static_cast<ulonglong>(ft.dwHighDateTime) << 32 | static_cast<ulonglong>(ft.dwLowDateTime)) - 116444736000000000LL;
+    ulonglong ns100 = (static_cast<ulonglong>(ft.dwHighDateTime) << 32 | static_cast<ulonglong>(ft.dwLowDateTime)) - 116444736000000000LL;
     return ns100 / 10000;
 }
 
 #elif defined(__APPLE__) && defined(__MACH__)
 
-uint64_t get_time_since_epoch_ms()
+ulonglong get_time_since_epoch_ms()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
