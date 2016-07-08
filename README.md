@@ -1,4 +1,4 @@
-# UNIX_TIMESTAMP_MS for MySQL
+# MySQL unix_timestamp_ms
 
 MySQL UDF function implemented in C++ for getting the value of a `DATETIME`, `TIME`, `DATE`, `TIMESTAMP` field in miliseconds.
 
@@ -12,9 +12,9 @@ Just run `make compile` in the project root.
 
 **Installation**
 
-After you compile you must install it and tell MySQL about it ([More details][1]).
+After you compile you must install it and tell MySQL about it ([More details][1]). You need to locate the plugin directory.This directory is given by the value of the `plugin_dir` system variable. Usually located in `/usr/lib/mysql/plugin/` in linux.
  
--Copy the shared object to the server's plugin directory and name it `unix_timestamp_ms.so`. This directory is given by the value of the `plugin_dir` system variable. Usually located in `/usr/lib/mysql/plugin/` in linux.
+-Copy the shared object to the server's plugin directory and name it `unix_timestamp_ms.so`
 -Inform mysql about the new function by running: `CREATE FUNCTION UNIX_TIMESTAMP_MS RETURNS INT SONAME 'unix_timestamp_ms.so';`
 
 **Testing**
