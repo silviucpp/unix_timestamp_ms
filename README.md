@@ -26,4 +26,9 @@ SELECT UNIX_TIMESTAMP_MS(TIME("2016-03-30 18:29:09")) = UNIX_TIMESTAMP(TIME("201
 SELECT UNIX_TIMESTAMP_MS() > UNIX_TIMESTAMP()*1000
 ```
 
+**Notes**
+
+- Supports for 3 decimals precision for miliseconds. For example the following are valid: `SELECT UNIX_TIMESTAMP_MS(NOW(3))`, `SELECT UNIX_TIMESTAMP_MS(NOW(2))`, `SELECT UNIX_TIMESTAMP_MS("2016-03-30 18:29:09.452")`
+- In case the input format is not valid will return NULL or will trigger an error in case the input is too long (more than 23 charachters).
+
 [1]:http://dev.mysql.com/doc/refman/5.7/en/udf-compiling.html

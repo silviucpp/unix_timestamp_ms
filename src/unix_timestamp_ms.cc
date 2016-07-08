@@ -40,9 +40,9 @@ typedef long long longlong;
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
+#define MAX_BUFFER_SIZE 24 //MAX_DATE_TIME_LENGTH + 1
+#define MAX_DATE_TIME_LENGTH 23
 #define DATE_TIME_LENGTH 19
-#define	DATE_LENGTH 10
-#define TIME_LENGTH 8
 
 const char kDateTimeFormat[] = "%Y-%m-%d %H:%M:%S";
 const char kDateFormat[] = "%Y-%m-%d";
@@ -84,6 +84,14 @@ ulonglong get_time_since_epoch_ms()
 
 #endif
 
+ulonglong append_ms(char* unparsed, ulonglong ts)
+{
+    if (strlen(unparsed) > 1 && unparsed[0] == '.')
+        return ts + atoi(unparsed+1);
+
+    return ts;
+}
+
 my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
     UNUSED(initid);
@@ -94,7 +102,7 @@ my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
         return 1;
     }
     
-    if(args->arg_count == 1 && args->lengths[0] > 19)
+    if(args->arg_count == 1 && args->lengths[0] > MAX_DATE_TIME_LENGTH)
     {
         strcpy(message,"UNIX_TIMESTAMP_MS received invalid date time as argument");
         return 1;
@@ -117,40 +125,49 @@ ulonglong unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, cha
         return get_time_since_epoch_ms();
     
     struct tm tm;
-    char buff[20];
-    unsigned long length =  args->lengths[0];
+    char buff[MAX_BUFFER_SIZE];
+    unsigned long length = args->lengths[0];
     memcpy(buff, args->args[0], length);
     buff[length] = '\0';
-    
-    if(length == DATE_TIME_LENGTH)
+
+    if(length >= DATE_TIME_LENGTH)
     {
-        if (strptime(buff, kDateTimeFormat, &tm) != NULL)
-            return mktime(&tm)*1000;
+        char* unparsed = strptime(buff, kDateTimeFormat, &tm);
+
+        if (unparsed != NULL)
+            return append_ms(unparsed, mktime(&tm)*1000);
     }
-    else if (length == DATE_LENGTH)
+    else
     {
-        tm.tm_hour = 0;
-        tm.tm_min = 0;
-        tm.tm_sec = 0;
-        tm.tm_isdst = -1;
-        
-        if (strptime(buff, kDateFormat, &tm) != NULL)
-            return mktime(&tm)*1000;
-    }
-    else if (length == TIME_LENGTH)
-    {
-        if (strptime(buff, kTimeFormat, &tm) != NULL)
+        bool is_time = (buff[2] == ':');
+
+        if(is_time)
         {
-            time_t rawtime;
-            time (&rawtime);
-            struct tm * local_tm = localtime (&rawtime);
-            local_tm->tm_hour = tm.tm_hour;
-            local_tm->tm_min = tm.tm_min;
-            local_tm->tm_sec = tm.tm_sec;
-            return mktime(local_tm)*1000;
+            char* unparsed = strptime(buff, kTimeFormat, &tm);
+
+            if (unparsed != NULL)
+            {
+                time_t rawtime;
+                time (&rawtime);
+                struct tm * local_tm = localtime (&rawtime);
+                local_tm->tm_hour = tm.tm_hour;
+                local_tm->tm_min = tm.tm_min;
+                local_tm->tm_sec = tm.tm_sec;
+                return append_ms(unparsed, mktime(local_tm)*1000);
+            }
+        }
+        else
+        {
+            tm.tm_hour = 0;
+            tm.tm_min = 0;
+            tm.tm_sec = 0;
+            tm.tm_isdst = -1;
+
+            if (strptime(buff, kDateFormat, &tm) != NULL)
+                return mktime(&tm)*1000;
         }
     }
-    
+
     *error = 1;
     return 0;
 }
