@@ -133,13 +133,13 @@ bool parse_date_time(const char* buffer, uint64 length, struct time_ms* tm)
 my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
     UNUSED(initid);
-    
+
     if (args->arg_count > 1)
     {
         strcpy(message,"UNIX_TIMESTAMP_MS requires no more than one argument");
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -152,10 +152,16 @@ uint64 unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* 
 {
     UNUSED(initid);
     UNUSED(is_null);
-    
+
     if(args->arg_count == 0)
         return get_time_since_epoch_ms();
-    
+
+    if(args->args[0] == NULL)
+    {
+    	*is_null = 1;
+    	return 0;
+    }
+
     uint32 length = args->lengths[0];
 
     if(length <= MAX_DATE_TIME_LENGTH)
