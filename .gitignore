@@ -1,3 +1,4 @@
 *.so
 *.project
 *.cproject
+/.settings/

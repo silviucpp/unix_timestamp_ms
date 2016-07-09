@@ -1,95 +1,133 @@
-#ifdef STANDARD
-/* STANDARD is defined, don't use any mysql functions */
+//
+//  unix_timestamp_ms.cc
+//
+//  Created by Silviu Caragea on 7/8/16.
+//  Copyright © 2016 silviu.cpp@gmail.com. All rights reserved.
+//
+
+#include "timestamp.h"
+#include "fast_atoi.h"
+
+#include <mysql/mysql.h>
 #include <string.h>
-
-#ifdef __WIN__
-typedef unsigned __int64 ulonglong; /* Microsofts 64 bit types */
-typedef __int64 longlong;
-#else
-typedef unsigned long long ulonglong;
-typedef long long longlong;
-#endif
-
-#else
-
-#include <my_global.h>
-#include <my_sys.h>
-#if defined(MYSQL_SERVER)
-#include <m_string.h>
-#else
-/* when compiled as standalone */
-#include <string.h>
-#endif
-#endif
-
-#include <mysql.h>
-#include <ctype.h>
-
-#if defined(__WIN__)
-#ifndef _WINSOCKAPI_
-#define _WINSOCKAPI_
-#endif
-#include <Windows.h>
-#elif defined(__APPLE__) && defined(__MACH__)
-#include <sys/time.h>
-#else
-#include <time.h>
-#endif
 
 #ifdef HAVE_DLOPEN
 
-#define UNUSED(expr) do { (void)(expr); } while (0)
-
-#define MAX_BUFFER_SIZE 24 //MAX_DATE_TIME_LENGTH + 1
+#define MAX_BUFFER_SIZE 24
 #define MAX_DATE_TIME_LENGTH 23
 #define DATE_TIME_LENGTH 19
 
-const char kDateTimeFormat[] = "%Y-%m-%d %H:%M:%S";
-const char kDateFormat[] = "%Y-%m-%d";
-const char kTimeFormat[] = "%H:%M:%S";
+#define INVALID_YEAR(X) (X < 1)
+#define INVALID_MONTH(X) (X < 1 || X > 12)
+#define INVALID_DAY(X) (X < 1 || X > 31)
+#define INVALID_HOUR(X) (X > 23)
+#define INVALID_MINUTE(X) (X > 59)
+#define INVALID_SECOND(X) (X > 59)
+
+static const int32 kGmtOffsetMs = gmt_offset_seconds()*1000;
 
 extern "C" {
     my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
     void unix_timestamp_ms_deinit(UDF_INIT* initid);
-    ulonglong unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error);
+    uint64 unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error);
 }
 
-#if defined(_WIN32)
-
-ulonglong get_time_since_epoch_ms()
+bool parse2d(const char* p, uint32 i, uint8 *rs)
 {
-    _FILETIME ft;
-    GetSystemTimeAsFileTime(&ft);
-    ulonglong ns100 = (static_cast<ulonglong>(ft.dwHighDateTime) << 32 | static_cast<ulonglong>(ft.dwLowDateTime)) - 116444736000000000LL;
-    return ns100 / 10000;
+    int8 d0, d1;
+
+    if (((d0 = p[i + 0] - '0') > 9) || ((d1 = p[i + 1] - '0') > 9))
+        return false;
+
+    *rs = d0 * 10 + d1;
+    return true;
 }
 
-#elif defined(__APPLE__) && defined(__MACH__)
-
-ulonglong get_time_since_epoch_ms()
+bool parse4d(const char* p, uint32 i, uint16 *rs)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return static_cast<ulonglong>(tv.tv_sec)  * 1000 + static_cast<ulonglong>(tv.tv_usec) / 1000;
+    char d0, d1, d2, d3;
+
+    if (((d0 = p[i + 0] - '0') > 9) || ((d1 = p[i + 1] - '0') > 9) || ((d2 = p[i + 2] - '0') > 9) || ((d3 = p[i + 3] - '0') > 9))
+        return false;
+
+    *rs = d0 * 1000 + d1 * 100 + d2 * 10 + d3;
+    return true;
 }
 
-#else
-
-ulonglong get_time_since_epoch_ms()
+bool parse_date_time(const char* buffer, uint64 length, struct time_ms* tm)
 {
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    return static_cast<ulonglong>(ts.tv_sec) * 1000 + static_cast<ulonglong>(ts.tv_nsec) / 1000000;
-}
+    if(length >= DATE_TIME_LENGTH)
+    {
+        if(buffer[4] != '-' || buffer[7]  != '-' || buffer[13] != ':' || buffer[16] != ':')
+            return false;
 
-#endif
+        if(!parse4d(buffer, 0, &tm->year) || INVALID_YEAR(tm->year))
+            return false;
 
-ulonglong append_ms(char* unparsed, ulonglong ts)
-{
-    if (strlen(unparsed) > 1 && unparsed[0] == '.')
-        return ts + atoi(unparsed+1);
+        if(!parse2d(buffer, 5, &tm->month) || INVALID_MONTH(tm->month))
+            return false;
 
-    return ts;
+        if(!parse2d(buffer, 8, &tm->day) || INVALID_DAY(tm->day))
+            return false;
+
+        if(!parse2d(buffer, 11, &tm->hour) || INVALID_HOUR(tm->hour))
+            return false;
+
+        if(!parse2d(buffer, 14, &tm->minute) || INVALID_MINUTE(tm->minute))
+            return false;
+
+        if(!parse2d(buffer, 17, &tm->second) || INVALID_SECOND(tm->second))
+            return false;
+
+        uint64 rest = length - DATE_TIME_LENGTH;
+        tm->millisecond = (rest > 1 && buffer[DATE_TIME_LENGTH] == '.' ? fast_atoi(buffer+20) : 0);
+    }
+    else
+    {
+        bool is_time = (buffer[2] == ':');
+
+        if(is_time && length >= 8)
+        {
+            if(buffer[2] != ':' || buffer[5]  != ':')
+                return false;
+
+            if(!parse2d(buffer, 0, &tm->hour) || INVALID_HOUR(tm->hour))
+                return false;
+
+            if(!parse2d(buffer, 3, &tm->minute) || INVALID_MINUTE(tm->minute))
+                return false;
+
+            if(!parse2d(buffer, 6, &tm->second) || INVALID_SECOND(tm->second))
+                return false;
+
+            uint64 rest = length - 8;
+            time_t rawtime = time (0);
+            struct tm* now = gmtime(&rawtime);
+
+            tm->year = now->tm_year + 1900;
+            tm->month = now->tm_mon + 1;
+            tm->day = now->tm_mday;
+            tm->millisecond = (rest > 1 && buffer[8] == '.' ? fast_atoi(buffer+9) : 0);
+        }
+        else if(length == 10)
+        {
+            memset(tm, 0, sizeof(struct time_ms));
+
+            if (buffer[4] != '-' || buffer[7]  != '-')
+                return false;
+
+            if(!parse4d(buffer, 0, &tm->year) || INVALID_YEAR(tm->year))
+                return false;
+
+            if(!parse2d(buffer, 5, &tm->month) || INVALID_MONTH(tm->month))
+                return false;
+
+            if(!parse2d(buffer, 8, &tm->day) || INVALID_DAY(tm->day))
+                return false;
+        }
+    }
+
+    return true;
 }
 
 my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
@@ -102,12 +140,6 @@ my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
         return 1;
     }
     
-    if(args->arg_count == 1 && args->lengths[0] > MAX_DATE_TIME_LENGTH)
-    {
-        strcpy(message,"UNIX_TIMESTAMP_MS received invalid date time as argument");
-        return 1;
-    }
-    
     return 0;
 }
 
@@ -116,7 +148,7 @@ void unix_timestamp_ms_deinit(UDF_INIT* initid)
     UNUSED(initid);
 }
 
-ulonglong unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error)
+uint64 unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error)
 {
     UNUSED(initid);
     UNUSED(is_null);
@@ -124,52 +156,26 @@ ulonglong unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, cha
     if(args->arg_count == 0)
         return get_time_since_epoch_ms();
     
-    struct tm tm;
-    char buff[MAX_BUFFER_SIZE];
-    unsigned long length = args->lengths[0];
-    memcpy(buff, args->args[0], length);
-    buff[length] = '\0';
+    uint32 length = args->lengths[0];
 
-    if(length >= DATE_TIME_LENGTH)
+    if(length <= MAX_DATE_TIME_LENGTH)
     {
-        char* unparsed = strptime(buff, kDateTimeFormat, &tm);
+    	char buff[MAX_BUFFER_SIZE];
+		memcpy(buff, args->args[0], length);
+		buff[length] = '\0';
 
-        if (unparsed != NULL)
-            return append_ms(unparsed, mktime(&tm)*1000);
-    }
-    else
-    {
-        bool is_time = (buff[2] == ':');
+		struct time_ms tm;
+		int64 return_value = -1;
 
-        if(is_time)
-        {
-            char* unparsed = strptime(buff, kTimeFormat, &tm);
+		if(parse_date_time(buff, length, &tm))
+			return_value = tm2timestamp_ms(tm);
 
-            if (unparsed != NULL)
-            {
-                time_t rawtime;
-                time (&rawtime);
-                struct tm * local_tm = localtime (&rawtime);
-                local_tm->tm_hour = tm.tm_hour;
-                local_tm->tm_min = tm.tm_min;
-                local_tm->tm_sec = tm.tm_sec;
-                return append_ms(unparsed, mktime(local_tm)*1000);
-            }
-        }
-        else
-        {
-            tm.tm_hour = 0;
-            tm.tm_min = 0;
-            tm.tm_sec = 0;
-            tm.tm_isdst = -1;
-
-            if (strptime(buff, kDateFormat, &tm) != NULL)
-                return mktime(&tm)*1000;
-        }
+		if(return_value != -1)
+			return return_value - kGmtOffsetMs;
     }
 
-    *error = 1;
-    return 0;
+	*error = 1;
+	return 0;
 }
 
 #endif
