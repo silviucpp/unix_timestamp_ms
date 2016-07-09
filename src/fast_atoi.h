@@ -10,6 +10,6 @@
 
 #include "basictypes.h"
 
-int32 fast_atoi(const char *b);
+int32 fast_atoi(const char *str);
 
 #endif

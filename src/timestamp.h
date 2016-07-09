@@ -8,8 +8,8 @@
 #ifndef UNIX_TIMESTAMP_MS_TIMESTAMP_H_
 #define UNIX_TIMESTAMP_MS_TIMESTAMP_H_
 
-#include <time.h>
 #include "basictypes.h"
+#include <time.h>
 
 struct time_ms
 {

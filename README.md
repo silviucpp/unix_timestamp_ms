@@ -1,10 +1,10 @@
 # MySQL unix_timestamp_ms
 
-MySQL UDF function implemented in C++ for getting the unix timestamp of a `DATETIME`, `TIME`, `DATE`, `TIMESTAMP` field in miliseconds.
+MySQL UDF function implemented in C++ for getting the unix timestamp of a `DATETIME`, `TIME`, `DATE`, `TIMESTAMP` field in miliseconds. Much faster than `UNIX_TIMESTAMP` builtin function.
 
 `UNIX_TIMESTAMP_MS(DateTime)` works in the same way the builtin function `UNIX_TIMESTAMP(DateTime)` does the only difference being the fact that returns the timestamp in miliseconds and not in seconds. 
 
-If called with no argument, returns a Unix timestamp (miliseconds since '1970-01-01 00:00:00' UTC) as an unsigned integer. If `UNIX_TIMESTAMP_MS()` is called with a date argument, it returns the value of the argument as miliseconds since '1970-01-01 00:00:00' UTC. date may be a DATE string, a DATETIME string or a TIMESTAMP. The server interprets date as a value in the current time zone and converts it to an internal value in UTC. 
+If called with no argument, returns a Unix timestamp (miliseconds since '1970-01-01 00:00:00' UTC) as an unsigned integer. If `UNIX_TIMESTAMP_MS()` is called with a date argument, it returns the value of the argument as miliseconds since '1970-01-01 00:00:00' UTC. date may be a `DATE` string, a `DATETIME` string or a `TIMESTAMP`. The server interprets date as a value in the current time zone and converts it to an internal value in UTC. 
 
 **Compilation**
 
@@ -29,7 +29,7 @@ SELECT UNIX_TIMESTAMP_MS() > UNIX_TIMESTAMP()*1000
 **Notes**
 
 - It keeps track for 3 decimals precision for miliseconds. For example the following are valid: `SELECT UNIX_TIMESTAMP_MS(NOW(3))`, `SELECT UNIX_TIMESTAMP_MS(NOW(2))` or `SELECT UNIX_TIMESTAMP_MS("2016-03-30 18:29:09.452")`
-- In case the input is not in a valid format will return NULL or will trigger an error in case there are too many arguments (more than 1).
+- In case the input is not in a valid format will return `NULL` or will trigger an error in case there are too many arguments (more than 1).
 - The GMT offset is the one from system when the module is loaded and cached. In case you changed the system timezone you need to reload the module by dropping and crating the function back or restart the server.
 - The function doesn't accept yet as input a number in the format `YYMMDD` or `YYYYMMDD` as `UNIX_TIMESTAMP` does.
 
