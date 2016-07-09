@@ -16,7 +16,7 @@
 int32 fast_atoi(const char *str)
 {
     int32 res = 0;
-    
+
 #if defined(ATOI_SKIP_WHITESPACE)
     while (is_space(*str))
         ++str;
@@ -34,13 +34,13 @@ int32 fast_atoi(const char *str)
 
             res = res * 10 - d;
         }
-        while(++str);
+        while (++str);
     }
     else if (*str == '+')
     {
         ++str;
     }
-    
+
     do
     {
         uint8 d = static_cast<uint8>(*str) - '0';
@@ -49,7 +49,7 @@ int32 fast_atoi(const char *str)
 
         res = res * 10 + d;
     }
-    while(++str);
-    
+    while (++str);
+
     return res;
 }

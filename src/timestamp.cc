@@ -28,7 +28,7 @@ static uint8 days_per_month(uint16 y, uint16 m)
         {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
         {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
     };
-    
+
     return kDays[m == 2 && is_leap_year(y)][m];
 }
 
@@ -40,17 +40,17 @@ static const uint16 kDayOffset[13] =
 int64 tm2timestamp_ms(const struct time_ms& tm)
 {
     uint16 year = tm.year;
-    
+
     if (tm.day > 28 && tm.day > days_per_month(tm.year, tm.month))
         return -1;
-    
+
     if (tm.month < 3)
         year--;
-    
-    uint32 rdn = (1461 * year)/4 - year/100 + year/400 + kDayOffset[tm.month] + tm.day - 306;
+
+    uint32 rdn = (1461 * year) / 4 - year / 100 + year / 400 + kDayOffset[tm.month] + tm.day - 306;
     uint32 sod = tm.hour * 3600 + tm.minute * 60 + tm.second;
-    
-    return (((int64)rdn - 719163) * 86400 + sod)* 1000 + tm.millisecond;
+
+    return ((static_cast<int64>(rdn) - 719163) * 86400 + sod) * 1000 + tm.millisecond;
 }
 
 #if defined(_WIN32)
@@ -69,7 +69,7 @@ uint64 get_time_since_epoch_ms()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return static_cast<uint64>(tv.tv_sec)  * 1000 + static_cast<uint64>(tv.tv_usec) / 1000;
+    return static_cast<uint64>(tv.tv_sec) * 1000 + static_cast<uint64>(tv.tv_usec) / 1000;
 }
 
 #else
@@ -85,9 +85,8 @@ uint64 get_time_since_epoch_ms()
 
 int32 gmt_offset_seconds()
 {
-	time_t t = time(NULL);
-	struct tm lt;
-	localtime_r(&t, &lt);
-	return lt.tm_gmtoff;
+    time_t t = time(NULL);
+    struct tm lt;
+    localtime_r(&t, &lt);
+    return lt.tm_gmtoff;
 }
-
