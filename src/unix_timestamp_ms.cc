@@ -26,11 +26,10 @@
 
 static const int32 kGmtOffsetMs = gmt_offset_seconds() * 1000;
 
-extern "C"
-{
-my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
-void unix_timestamp_ms_deinit(UDF_INIT* initid);
-uint64 unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error);
+extern "C" {
+    my_bool unix_timestamp_ms_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
+    void unix_timestamp_ms_deinit(UDF_INIT* initid);
+    uint64 unix_timestamp_ms(UDF_INIT* initid, UDF_ARGS* args, char* is_null, char* error);
 }
 
 bool parse2d(const char* p, uint32 i, uint8 *rs)
