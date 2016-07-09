@@ -125,6 +125,10 @@ bool parse_date_time(const char* buffer, uint64 length, struct time_ms* tm)
             if (!parse2d(buffer, 8, &tm->day) || INVALID_DAY(tm->day))
                 return false;
         }
+        else
+        {
+            return false;
+        }
     }
 
     return true;
